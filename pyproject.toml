@@ -1,0 +1,28 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "emi-compass"
+version = "0.1.0"
+description = "Plot and sanity-check EMI suppression parts (capacitors, three-terminal caps, ferrite beads) from simple equivalent-circuit models"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "K. NISHIMURA" }]
+dependencies = [
+    "numpy>=1.26",
+    "matplotlib>=3.8",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.4"]
+
+[project.scripts]
+emi-compass = "emi_compass.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/emi_compass"]
+
+[tool.ruff]
+line-length = 100
