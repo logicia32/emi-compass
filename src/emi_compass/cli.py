@@ -10,7 +10,15 @@ import argparse
 
 import numpy as np
 
-from .models import CapacitorModel, antiresonance_peak, parallel_impedance
+from .models import (
+    TWO_PI,
+    BeadModel,
+    CapacitorModel,
+    antiresonance_peak,
+    parallel_impedance,
+    peak_in_band,
+    series_shunt_gain_db,
+)
 
 _SUFFIX = {
     "p": 1e-12,
@@ -82,6 +90,67 @@ def cmd_cap(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_bead(args: argparse.Namespace) -> int:
+    f = np.logspace(np.log10(parse_value(args.fmin)), np.log10(parse_value(args.fmax)), 4001)
+
+    bead = BeadModel(
+        l=parse_value(args.l),
+        r_loss=parse_value(args.r_loss),
+        r_dc=parse_value(args.r_dc),
+        c_par=parse_value(args.c_par),
+    )
+    z = bead.impedance(f)
+    f100 = np.array([100e6])
+    z100 = abs(bead.impedance(f100)[0])
+    print(f"bead: L={_eng(bead.l, 'H')}, R_loss={_eng(bead.r_loss, 'Ohm')}, "
+          f"R_dc={_eng(bead.r_dc, 'Ohm')}, C_par={_eng(bead.c_par, 'F')}")
+    print(f"    |Z| at 100 MHz = {z100:.1f} Ohm")
+    print(f"    R/X crossover (wake-up) = {_eng(bead.crossover, 'Hz')}")
+
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    two_panel = args.filter_c is not None
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4.5)) if two_panel else plt.subplots(figsize=(7, 4.5))
+    ax = axes[0] if two_panel else axes
+
+    ax.loglog(f, np.abs(z), color="#1f77b4", lw=2.2, label="|Z|")
+    ax.loglog(f, np.real(z), color="#d62728", lw=1.6, label="R (heat)")
+    ax.loglog(f, np.abs(np.imag(z)), color="#2ca02c", lw=1.6, label="X (store/return)")
+    ax.axvline(bead.crossover, color="#888", ls="--", lw=0.8)
+    ax.set_xlabel("frequency [Hz]")
+    ax.set_ylabel("Z, R, X [Ohm]")
+    ax.set_title("bead Z / R / X")
+    ax.grid(True, which="both", alpha=0.3)
+    ax.legend()
+
+    if two_panel:
+        esr = parse_value(args.filter_esr)
+        mlcc = CapacitorModel(parse_value(args.filter_c), esl=0.5e-9, esr=esr)
+        gain = series_shunt_gain_db(z, mlcc.impedance(f))
+        f_res = 1.0 / (TWO_PI * np.sqrt(bead.l * mlcc.c))
+        fpk, gpk = peak_in_band(f, gain, f_res / 5, f_res * 5)
+        print(f"bead + {_eng(mlcc.c, 'F')} (ESR {_eng(esr, 'Ohm')}): "
+              f"resonance ~ {_eng(f_res, 'Hz')}, peak {gpk:+.1f} dB at {_eng(fpk, 'Hz')}")
+        ax2 = axes[1]
+        ax2.semilogx(f, gain, color="#d62728", lw=2)
+        ax2.axhline(0, color="#888", lw=0.8)
+        ax2.annotate(f"+{gpk:.1f} dB\n(noise amplified)", xy=(fpk, gpk),
+                     xytext=(fpk * 6, gpk - 4), fontsize=9, color="#d62728",
+                     arrowprops=dict(arrowstyle="->", color="#d62728"))
+        ax2.set_xlabel("frequency [Hz]")
+        ax2.set_ylabel("gain Vout/Vin [dB]  (>0 = worse)")
+        ax2.set_title(f"bead + {_eng(mlcc.c, 'F')} MLCC: resonance peak")
+        ax2.grid(True, which="both", alpha=0.3)
+
+    fig.tight_layout()
+    fig.savefig(args.out, dpi=140)
+    print(f"saved: {args.out}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="emi-compass", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -97,6 +166,18 @@ def main(argv: list[str] | None = None) -> int:
     p_cap.add_argument("--fmax", default="3G", help="plot stop frequency (default 3G)")
     p_cap.add_argument("-o", "--out", default="emi_compass_cap.png", help="output PNG path")
     p_cap.set_defaults(func=cmd_cap)
+
+    p_bead = sub.add_parser("bead", help="plot Z/R/X of a ferrite bead (and an optional bead+C resonance check)")
+    p_bead.add_argument("--l", default="0.35u", help="low-frequency inductance (default 0.35u)")
+    p_bead.add_argument("--r-loss", default="112", help="parallel loss resistance / resistive plateau (default 112)")
+    p_bead.add_argument("--r-dc", default="0.05", help="DC resistance in ohms (default 0.05)")
+    p_bead.add_argument("--c-par", default="1p", help="parasitic capacitance (default 1p)")
+    p_bead.add_argument("--filter-c", default=None, help="downstream shunt MLCC for a bead+C resonance check, e.g. 10u")
+    p_bead.add_argument("--filter-esr", default="5m", help="ESR of the downstream MLCC (default 5m)")
+    p_bead.add_argument("--fmin", default="10k", help="plot start frequency (default 10k)")
+    p_bead.add_argument("--fmax", default="3G", help="plot stop frequency (default 3G)")
+    p_bead.add_argument("-o", "--out", default="emi_compass_bead.png", help="output PNG path")
+    p_bead.set_defaults(func=cmd_bead)
 
     args = parser.parse_args(argv)
     return args.func(args)

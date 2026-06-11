@@ -3,15 +3,21 @@ import pytest
 
 from emi_compass.cli import parse_value
 from emi_compass.models import (
+    TWO_PI,
+    BeadModel,
     CapacitorModel,
     antiresonance_peak,
     ideal_cap_impedance,
     parallel_impedance,
+    peak_in_band,
+    series_insertion_loss_db,
+    series_shunt_gain_db,
     shunt_insertion_loss_db,
     shunt_insertion_loss_db_sys,
 )
 
 MLCC = CapacitorModel(c=0.1e-6, esl=0.5e-9, esr=0.02)
+BEAD = BeadModel(l=0.35e-6, r_loss=112.0, r_dc=0.05, c_par=1e-12)
 
 
 def test_srf_matches_formula():
@@ -93,6 +99,62 @@ def test_il_shrinks_on_low_impedance_rail():
     assert il_bench > 35
     assert il_rail < 15
     assert il_bench - il_rail > 20
+
+
+def test_bead_crossover_matches_formula():
+    # wL = R_loss  ->  f = R_loss / (2*pi*L)
+    assert BEAD.crossover == pytest.approx(112.0 / (TWO_PI * 0.35e-6), rel=1e-9)
+
+
+def test_bead_low_frequency_is_inductive():
+    f = np.array([1e5])  # 100 kHz, far below the crossover
+    z = BEAD.impedance(f)[0]
+    assert abs(z.imag) > z.real  # X dominates
+    assert abs(z) == pytest.approx(TWO_PI * f[0] * BEAD.l, rel=0.05)
+
+
+def test_bead_is_resistive_above_crossover():
+    f = np.array([100e6])  # above the ~51 MHz crossover
+    z = BEAD.impedance(f)[0]
+    assert z.real > abs(z.imag)  # R dominates -> the bead "woke up"
+
+
+def test_bead_z_at_100mhz_is_about_100ohm():
+    z100 = abs(BEAD.impedance(np.array([100e6]))[0])
+    assert z100 == pytest.approx(100.0, abs=12.0)  # "100 ohm @ 100 MHz" class
+
+
+def test_bead_parasitic_cap_rolls_off_top_end():
+    # parasitic C bypasses the part: |Z| falls back down at the very top
+    z_mid = abs(BEAD.impedance(np.array([3e8]))[0])
+    z_top = abs(BEAD.impedance(np.array([3e9]))[0])
+    assert z_top < z_mid
+
+
+def test_series_insertion_loss_known_values():
+    z = np.array([100.0 + 0j])
+    assert series_insertion_loss_db(z, 100.0)[0] == pytest.approx(20 * np.log10(2.0), rel=1e-9)
+    assert series_insertion_loss_db(z, 2.0)[0] == pytest.approx(20 * np.log10(51.0), rel=1e-9)
+
+
+def test_series_insertion_loss_bigger_for_lower_rsys():
+    # opposite of a shunt part: a series bead works better against a stiff rail
+    z = np.array([100.0 + 0j])
+    assert series_insertion_loss_db(z, 2.0)[0] > series_insertion_loss_db(z, 100.0)[0]
+
+
+def test_bead_cap_resonance_peaks_then_damps():
+    f = np.logspace(4, 9, 6001)
+    zb = BEAD.impedance(f)
+    f_res = 1.0 / (TWO_PI * np.sqrt(BEAD.l * 10e-6))
+    # low-ESR MLCC: the LC pair peaks above 0 dB (noise amplified)
+    low = CapacitorModel(c=10e-6, esl=0.5e-9, esr=0.005)
+    _, gpk_low = peak_in_band(f, series_shunt_gain_db(zb, low.impedance(f)), f_res / 5, f_res * 5)
+    assert gpk_low > 6.0
+    # damped by a lossy (higher-ESR) cap: the peak is gone
+    damped = CapacitorModel(c=10e-6, esl=0.5e-9, esr=0.6)
+    _, gpk_damped = peak_in_band(f, series_shunt_gain_db(zb, damped.impedance(f)), f_res / 5, f_res * 5)
+    assert gpk_damped < 1.0
 
 
 def test_parse_value_suffixes():
