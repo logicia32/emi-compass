@@ -47,45 +47,48 @@ def grid(ax):
 # ---------------------------------------------------------------- fig 01
 # Two noise modes (diagram)
 def fig01():
-    fig, axes = plt.subplots(1, 2, figsize=(10, 3.6))
+    # Stacked vertically so each panel uses the full article column width;
+    # on Zenn a wide side-by-side diagram gets scaled down and the labels
+    # become hard to read.
+    fig, axes = plt.subplots(2, 1, figsize=(7.4, 7.2))
     for ax, title in zip(axes, ["Differential (normal) mode", "Common mode"]):
         ax.set_xlim(0, 10)
         ax.set_ylim(0, 5)
         ax.axis("off")
-        ax.set_title(title, fontsize=12)
+        ax.set_title(title, fontsize=15, pad=10)
         # source / load boxes
         for x, name in ((0.4, "noise\nsource"), (8.2, "circuit")):
             ax.add_patch(FancyBboxPatch((x, 1.4), 1.4, 2.2, boxstyle="round,pad=0.08",
                                         fc="#eef2f7", ec="#444"))
-            ax.text(x + 0.7, 2.5, name, ha="center", va="center", fontsize=9)
+            ax.text(x + 0.7, 2.5, name, ha="center", va="center", fontsize=12)
         # two conductors
-        ax.plot([1.8, 8.2], [3.2, 3.2], color="#1f77b4", lw=2)
-        ax.plot([1.8, 8.2], [1.8, 1.8], color="#555", lw=2)
-        ax.text(5.0, 3.45, "line", ha="center", fontsize=9, color="#1f77b4")
-        ax.text(5.0, 1.45, "return (GND)", ha="center", fontsize=9, color="#555")
+        ax.plot([1.8, 8.2], [3.2, 3.2], color="#1f77b4", lw=2.4)
+        ax.plot([1.8, 8.2], [1.8, 1.8], color="#555", lw=2.4)
+        ax.text(5.0, 3.5, "line", ha="center", fontsize=12, color="#1f77b4")
+        ax.text(5.0, 1.42, "return (GND)", ha="center", fontsize=12, color="#555")
 
     ax = axes[0]
-    ax.add_patch(FancyArrow(3.6, 3.2, 1.6, 0, width=0.06, head_width=0.3,
-                            head_length=0.4, color="#d62728"))
-    ax.add_patch(FancyArrow(6.4, 1.8, -1.6, 0, width=0.06, head_width=0.3,
-                            head_length=0.4, color="#d62728"))
+    ax.add_patch(FancyArrow(3.6, 3.2, 1.6, 0, width=0.07, head_width=0.34,
+                            head_length=0.42, color="#d62728"))
+    ax.add_patch(FancyArrow(6.4, 1.8, -1.6, 0, width=0.07, head_width=0.34,
+                            head_length=0.42, color="#d62728"))
     ax.text(5.0, 2.5, "goes out on the line,\ncomes back on the return",
-            ha="center", va="center", fontsize=9, color="#d62728")
+            ha="center", va="center", fontsize=12, color="#d62728")
 
     ax = axes[1]
     for y in (3.2, 1.8):
-        ax.add_patch(FancyArrow(3.6, y, 1.6, 0, width=0.06, head_width=0.3,
-                                head_length=0.4, color="#d62728"))
+        ax.add_patch(FancyArrow(3.6, y, 1.6, 0, width=0.07, head_width=0.34,
+                                head_length=0.42, color="#d62728"))
     # stray return path
     ax.plot([8.9, 8.9, 0.9, 0.9], [1.4, 0.4, 0.4, 1.4], color="#d62728",
-            lw=1.5, ls="--")
-    ax.text(5.0, 0.7, "returns via stray capacitance / chassis", ha="center",
-            fontsize=9, color="#d62728")
+            lw=1.8, ls="--")
+    ax.text(5.0, 0.66, "returns via stray capacitance / chassis", ha="center",
+            fontsize=12, color="#d62728")
     ax.text(5.0, 2.5, "both conductors swing together\n(vs. the outside world)",
-            ha="center", va="center", fontsize=9, color="#d62728")
+            ha="center", va="center", fontsize=12, color="#d62728")
 
-    fig.tight_layout()
-    fig.savefig(OUT / "01-two-noise-modes.png", dpi=140)
+    fig.tight_layout(h_pad=2.0)
+    fig.savefig(OUT / "01-two-noise-modes.png", dpi=150)
     plt.close(fig)
 
 
@@ -218,8 +221,10 @@ def fig06():
     ax.loglog(F, np.abs(z2), color="#2ca02c", lw=1.2, alpha=0.6, label="0.01 uF alone")
     ax.loglog(F, np.abs(zp), color="#d62728", lw=2.2, label="0.1 uF // 0.01 uF")
     ax.annotate(f"anti-resonance peak\n({fpk/1e6:.0f} MHz, {zpk:.2f} Ohm)",
-                xy=(fpk, zpk), xytext=(2e5, 2.3), fontsize=10, color="#d62728",
-                arrowprops=dict(arrowstyle="->", color="#d62728"))
+                xy=(fpk, zpk), xytext=(8e6, 40), fontsize=11, color="#d62728",
+                ha="center", va="center",
+                arrowprops=dict(arrowstyle="->", color="#d62728",
+                                shrinkA=6, shrinkB=4))
     ax.set_xlabel("frequency [Hz]")
     ax.set_ylabel("|Z| [Ohm]")
     ax.set_title("two valleys, and the hill between them")
@@ -234,46 +239,50 @@ def fig06():
 # ---------------------------------------------------------------- fig 07
 # Three-terminal structure (diagram)
 def fig07():
-    fig, axes = plt.subplots(1, 2, figsize=(10, 4.2))
+    # Stacked vertically (like fig01) so each schematic uses the full column
+    # width on Zenn and the labels stay legible.
+    fig, axes = plt.subplots(2, 1, figsize=(7.6, 8.2))
 
     ax = axes[0]
     ax.set_xlim(0, 10)
     ax.set_ylim(0, 6)
     ax.axis("off")
-    ax.set_title("2-terminal MLCC: the current takes a detour", fontsize=11)
-    ax.plot([0.5, 9.5], [4.6, 4.6], color="#1f77b4", lw=3)
-    ax.text(5.0, 4.95, "power line", ha="center", fontsize=9, color="#1f77b4")
+    ax.set_title("2-terminal MLCC: the current takes a detour", fontsize=15, pad=8)
+    ax.plot([0.5, 9.5], [4.6, 4.6], color="#1f77b4", lw=3.5)
+    ax.text(2.4, 5.0, "power line", ha="center", fontsize=13, color="#1f77b4")
     ax.add_patch(Rectangle((4.2, 2.2), 1.6, 1.2, fc="#c9a36a", ec="#444"))
-    ax.text(5.0, 2.8, "MLCC", ha="center", va="center", fontsize=9)
-    ax.plot([5.0, 5.0], [4.6, 3.4], color="#d62728", lw=2)
-    ax.plot([5.0, 5.0], [2.2, 1.0], color="#d62728", lw=2)
-    ax.plot([0.5, 9.5], [1.0, 1.0], color="#555", lw=3)
-    ax.text(5.0, 0.55, "GND", ha="center", fontsize=9, color="#555")
+    ax.text(5.0, 2.8, "MLCC", ha="center", va="center", fontsize=12)
+    ax.plot([5.0, 5.0], [4.6, 3.4], color="#d62728", lw=2.6)
+    ax.plot([5.0, 5.0], [2.2, 1.0], color="#d62728", lw=2.6)
+    ax.plot([0.5, 9.5], [1.0, 1.0], color="#555", lw=3.5)
+    ax.text(2.4, 0.5, "GND", ha="center", fontsize=13, color="#555")
     ax.annotate("this whole detour\n(pads, vias, electrodes)\nacts as ESL",
-                xy=(5.05, 3.9), xytext=(6.6, 2.6), fontsize=9, color="#d62728",
-                arrowprops=dict(arrowstyle="->", color="#d62728"))
+                xy=(5.05, 3.9), xytext=(6.5, 2.7), fontsize=13, color="#d62728",
+                va="center", arrowprops=dict(arrowstyle="->", color="#d62728",
+                                             shrinkA=4, shrinkB=4))
 
     ax = axes[1]
     ax.set_xlim(0, 10)
     ax.set_ylim(0, 6)
     ax.axis("off")
-    ax.set_title("3-terminal: the line passes through the part", fontsize=11)
-    ax.plot([0.5, 3.6], [3.0, 3.0], color="#1f77b4", lw=3)
-    ax.plot([6.4, 9.5], [3.0, 3.0], color="#1f77b4", lw=3)
+    ax.set_title("3-terminal: the line passes through the part", fontsize=15, pad=8)
+    ax.plot([0.5, 3.6], [3.0, 3.0], color="#1f77b4", lw=3.5)
+    ax.plot([6.4, 9.5], [3.0, 3.0], color="#1f77b4", lw=3.5)
     ax.add_patch(Rectangle((3.6, 2.2), 2.8, 1.6, fc="#c9a36a", ec="#444"))
-    ax.plot([3.6, 6.4], [3.0, 3.0], color="#1f77b4", lw=3)  # feedthrough electrode
-    ax.text(5.0, 4.1, "feedthrough electrode", ha="center", fontsize=9, color="#1f77b4")
+    ax.plot([3.6, 6.4], [3.0, 3.0], color="#1f77b4", lw=3.5)  # feedthrough electrode
+    ax.text(5.0, 4.2, "feedthrough electrode", ha="center", fontsize=13, color="#1f77b4")
     # wide ground tabs on both sides
     for x in (4.3, 5.7):
-        ax.plot([x, x], [2.2, 1.0], color="#2ca02c", lw=5, solid_capstyle="butt")
-    ax.plot([0.5, 9.5], [1.0, 1.0], color="#555", lw=3)
-    ax.text(5.0, 0.55, "GND", ha="center", fontsize=9, color="#555")
+        ax.plot([x, x], [2.2, 1.0], color="#2ca02c", lw=7, solid_capstyle="butt")
+    ax.plot([0.5, 9.5], [1.0, 1.0], color="#555", lw=3.5)
+    ax.text(2.4, 0.5, "GND", ha="center", fontsize=13, color="#555")
     ax.annotate("short, wide GND tabs\non both sides -> tiny ESL",
-                xy=(5.7, 1.6), xytext=(6.9, 2.2), fontsize=9, color="#2ca02c",
-                arrowprops=dict(arrowstyle="->", color="#2ca02c"))
+                xy=(5.75, 1.5), xytext=(6.8, 2.4), fontsize=13, color="#2ca02c",
+                va="center", arrowprops=dict(arrowstyle="->", color="#2ca02c",
+                                             shrinkA=4, shrinkB=4))
 
-    fig.tight_layout()
-    fig.savefig(OUT / "07-three-terminal-structure.png", dpi=140)
+    fig.tight_layout(h_pad=2.2)
+    fig.savefig(OUT / "07-three-terminal-structure.png", dpi=150)
     plt.close(fig)
 
 
@@ -289,8 +298,10 @@ def fig08():
     z_3t = abs(THREE_T.impedance(f100)[0])
     ax.annotate("", xy=(100e6, z_3t), xytext=(100e6, z_n),
                 arrowprops=dict(arrowstyle="<->", color="#555"))
-    ax.text(1.4e8, np.sqrt(z_n * z_3t) * 0.75, f"x{z_n/z_3t:.0f} at 100 MHz",
-            fontsize=10, color="#555")
+    # Park the label in the open band between the two curves, just right of the
+    # arrow, so it doesn't sit on the rising 3-terminal slope.
+    ax.text(1.25e8, z_n * 0.6, f"x{z_n / z_3t:.0f}\nat 100 MHz",
+            fontsize=11, color="#555", ha="left", va="center")
     ax.set_xlabel("frequency [Hz]")
     ax.set_ylabel("|Z| [Ohm]")
     ax.set_title("same 0.1 uF, different structure")
@@ -342,8 +353,9 @@ def fig10():
     r = float(shunt_insertion_loss_db_sys(MLCC.impedance(f100), 1.0)[0])
     ax.annotate("", xy=(100e6, r), xytext=(100e6, b),
                 arrowprops=dict(arrowstyle="<->", color="#555"))
-    ax.text(1.25e8, (b + r) / 2, f"{b:.0f} dB -> {r:.0f} dB\nat 100 MHz", fontsize=10,
-            color="#555")
+    # Sit the label just above the arrow's top, clear of the falling bench curve.
+    ax.text(1.05e8, b + 3, f"{b:.0f} dB -> {r:.0f} dB\nat 100 MHz", fontsize=11,
+            color="#555", ha="left", va="bottom")
     ax.set_xlabel("frequency [Hz]")
     ax.set_ylabel("insertion loss [dB]  (bigger = quieter)")
     ax.set_title("same 0.1 uF cap: the dB shrinks on a low-impedance rail")

@@ -6,14 +6,20 @@ from emi_compass.models import (
     TWO_PI,
     BeadModel,
     CapacitorModel,
+    LCFilterModel,
     antiresonance_peak,
     ideal_cap_impedance,
+    insertion_loss_from_s21,
     parallel_impedance,
     peak_in_band,
+    read_touchstone,
+    s_series_element,
     series_insertion_loss_db,
     series_shunt_gain_db,
+    series_z_from_s21,
     shunt_insertion_loss_db,
     shunt_insertion_loss_db_sys,
+    write_touchstone,
 )
 
 MLCC = CapacitorModel(c=0.1e-6, esl=0.5e-9, esr=0.02)
@@ -163,3 +169,104 @@ def test_parse_value_suffixes():
     assert parse_value("50p") == pytest.approx(5e-11)
     assert parse_value("3G") == pytest.approx(3e9)
     assert parse_value("0.02") == pytest.approx(0.02)
+
+
+# --- LC (pi) filter, article 3 -------------------------------------------
+
+LCF = LCFilterModel(l=22e-6, c=100e-6)  # the case-study choke + bulk cap
+
+
+def test_lc_filter_fc_matches_formula():
+    # fc = 1/(2*pi*sqrt(L*C)); 22uH + 100uF -> ~3.39 kHz
+    assert LCF.fc == pytest.approx(1.0 / (TWO_PI * np.sqrt(22e-6 * 100e-6)), rel=1e-9)
+    assert LCF.fc == pytest.approx(3.39e3, rel=0.02)
+
+
+def test_lc_filter_dc_gain_is_unity():
+    att = LCF.attenuation_db(np.array([1.0]))[0]  # ~DC, far below fc
+    assert att == pytest.approx(0.0, abs=0.2)  # passes DC through
+
+
+def test_lc_filter_ideal_rolls_off_40db_per_decade():
+    # ideal shunt cap (esr=0): two decades above fc -> ~40 dB/dec
+    f = np.array([1e5, 1e6])
+    att = LCF.attenuation_db(f)
+    assert (att[1] - att[0]) == pytest.approx(40.0, abs=1.0)
+
+
+def test_lc_filter_reaches_about_100db_at_1mhz():
+    # 1 MHz is ~300x above fc -> ~99 dB for an ideal 2nd-order section
+    att = LCF.attenuation_db(np.array([1e6]))[0]
+    assert att == pytest.approx(99.0, abs=3.0)
+
+
+def test_lc_filter_underdamped_peaks_above_zero():
+    # low total loss -> the LC amplifies near fc (gain > 0 dB)
+    f = np.logspace(2, 5, 4001)
+    low_loss = LCFilterModel(l=22e-6, c=100e-6, esr=0.005, dcr=0.05, r_src=0.1)
+    _, gpk = peak_in_band(f, low_loss.gain_db(f), low_loss.fc / 4, low_loss.fc * 4)
+    assert gpk > 5.0
+
+
+def test_lc_filter_damping_removes_peak():
+    f = np.logspace(2, 5, 4001)
+    damped = LCFilterModel(l=22e-6, c=100e-6, esr=0.6, dcr=0.05, r_src=0.1)
+    _, gpk = peak_in_band(f, damped.gain_db(f), damped.fc / 4, damped.fc * 4)
+    assert gpk < 1.0
+
+
+def test_lc_filter_esr_flattens_stopband():
+    # a real cap ESR limits the deep stop-band: the slope drops below 40 dB/dec
+    # (this is exactly why a pi filter needs a second, low-ESR cap)
+    f = np.array([1e5, 1e6])
+    leaky = LCFilterModel(l=22e-6, c=100e-6, esr=0.5)
+    att = leaky.attenuation_db(f)
+    assert (att[1] - att[0]) < 30.0
+
+
+# --- S-parameters / Touchstone, article 3 --------------------------------
+
+def test_series_s_roundtrip():
+    z = np.array([0.5 + 0j, 10.0 + 30j, 100.0 - 20j])
+    _, s21 = s_series_element(z, z0=50.0)
+    np.testing.assert_allclose(series_z_from_s21(s21, 50.0), z, rtol=1e-9)
+
+
+def test_series_open_has_zero_transmission():
+    # a huge series impedance blocks the line: S21 -> 0, IL large
+    _, s21 = s_series_element(np.array([1e9 + 0j]), z0=50.0)
+    assert insertion_loss_from_s21(s21)[0] > 60.0
+
+
+def test_series_short_passes_through():
+    # a tiny series impedance is invisible: S21 -> 1, IL ~ 0
+    _, s21 = s_series_element(np.array([1e-6 + 0j]), z0=50.0)
+    assert insertion_loss_from_s21(s21)[0] == pytest.approx(0.0, abs=1e-3)
+
+
+def test_touchstone_write_read_roundtrip(tmp_path):
+    f = np.logspace(5, 9, 50)
+    z = BEAD.impedance(f)
+    s11, s21 = s_series_element(z, z0=50.0)
+    p = tmp_path / "bead.s2p"
+    write_touchstone(p, f, s11, s21, z0=50.0, comment="synthetic bead")
+    f2, s = read_touchstone(p)
+    np.testing.assert_allclose(f2, f, rtol=1e-5)
+    np.testing.assert_allclose(s["s21"], s21, rtol=1e-4, atol=1e-6)
+    # and the impedance recovered through the .s2p matches the model
+    np.testing.assert_allclose(series_z_from_s21(s["s21"], s["z0"]), z, rtol=1e-3)
+
+
+def test_touchstone_reads_mhz_and_ri(tmp_path):
+    # a hand-written file in MHz / real-imag format parses to the same place
+    p = tmp_path / "ri.s2p"
+    p.write_text(
+        "! demo\n# MHz S RI R 50\n"
+        "100 0.5 0.0 0.5 0.0 0.5 0.0 0.5 0.0\n"
+        "200 0.0 0.5 0.0 0.5 0.0 0.5 0.0 0.5\n"
+    )
+    f, s = read_touchstone(p)
+    assert f[0] == pytest.approx(100e6)
+    assert f[1] == pytest.approx(200e6)
+    assert s["s11"][0] == pytest.approx(0.5 + 0j)
+    assert s["s21"][1] == pytest.approx(0.5j)

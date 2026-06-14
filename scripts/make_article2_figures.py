@@ -53,50 +53,50 @@ def at(bead, f_hz):
 # ---------------------------------------------------------------- fig 01
 # Three strategies (diagram): divert / block & return / turn to heat
 def fig01():
-    fig, axes = plt.subplots(1, 3, figsize=(12, 3.6))
-    titles = ["Capacitor: divert\n(energy stays)",
-              "Inductor: block & return\n(energy stays)",
-              "Bead: turn to heat\n(energy gone)"]
+    fig, axes = plt.subplots(3, 1, figsize=(7.6, 8.4))
+    titles = ["Capacitor: divert  (energy stays)",
+              "Inductor: block & return  (energy stays)",
+              "Bead: turn to heat  (energy gone)"]
     for ax, title in zip(axes, titles):
         ax.set_xlim(0, 10)
         ax.set_ylim(0, 5)
         ax.axis("off")
-        ax.set_title(title, fontsize=11)
-        ax.plot([0.5, 9.5], [3.6, 3.6], color="#1f77b4", lw=2.5)
-        ax.plot([0.5, 9.5], [1.0, 1.0], color="#555", lw=2.5)
-        ax.text(0.5, 4.0, "noise in ->", fontsize=9, color="#d62728")
+        ax.set_title(title, fontsize=14, pad=8)
+        ax.plot([0.5, 9.5], [3.6, 3.6], color="#1f77b4", lw=2.8)
+        ax.plot([0.5, 9.5], [1.0, 1.0], color="#555", lw=2.8)
+        ax.text(0.5, 4.3, "noise in ->", fontsize=12, color="#d62728")
 
     # capacitor: shunt to GND
     ax = axes[0]
-    ax.add_patch(FancyBboxPatch((4.5, 2.2), 1.0, 0.7, boxstyle="round,pad=0.04",
+    ax.add_patch(FancyBboxPatch((4.4, 2.1), 1.2, 0.8, boxstyle="round,pad=0.04",
                                 fc="#cfe3f7", ec="#1f77b4"))
-    ax.plot([5.0, 5.0], [3.6, 2.9], color="#1f77b4", lw=2)
-    ax.plot([5.0, 5.0], [2.2, 1.0], color="#1f77b4", lw=2)
-    ax.add_patch(FancyArrow(5.0, 3.2, 0, -1.4, width=0.04, head_width=0.28,
-                            head_length=0.3, color="#d62728"))
-    ax.text(5.5, 2.0, "to GND", fontsize=9, color="#d62728")
+    ax.plot([5.0, 5.0], [3.6, 2.9], color="#1f77b4", lw=2.3)
+    ax.plot([5.0, 5.0], [2.1, 1.0], color="#1f77b4", lw=2.3)
+    ax.add_patch(FancyArrow(5.0, 3.2, 0, -1.4, width=0.05, head_width=0.34,
+                            head_length=0.32, color="#d62728"))
+    ax.text(5.7, 1.9, "to GND", fontsize=12, color="#d62728")
 
     # inductor: series, bounce back
     ax = axes[1]
-    ax.add_patch(FancyBboxPatch((4.3, 3.25), 1.4, 0.7, boxstyle="round,pad=0.04",
+    ax.add_patch(FancyBboxPatch((4.2, 3.2), 1.6, 0.8, boxstyle="round,pad=0.04",
                                 fc="#d8f0d8", ec="#2ca02c"))
-    ax.text(5.0, 3.6, "L", ha="center", va="center", fontsize=10, color="#2ca02c")
-    ax.add_patch(FancyArrow(3.8, 3.6, -1.6, 0, width=0.04, head_width=0.28,
-                            head_length=0.35, color="#d62728"))
-    ax.text(2.6, 2.9, "reflected back", fontsize=9, color="#d62728")
+    ax.text(5.0, 3.6, "L", ha="center", va="center", fontsize=14, color="#2ca02c")
+    ax.add_patch(FancyArrow(3.7, 3.6, -1.7, 0, width=0.05, head_width=0.34,
+                            head_length=0.4, color="#d62728"))
+    ax.text(2.3, 2.9, "reflected back", fontsize=12, color="#d62728")
 
     # bead: series, becomes heat
     ax = axes[2]
-    ax.add_patch(FancyBboxPatch((4.3, 3.25), 1.4, 0.7, boxstyle="round,pad=0.04",
+    ax.add_patch(FancyBboxPatch((4.2, 3.2), 1.6, 0.8, boxstyle="round,pad=0.04",
                                 fc="#f7d9d9", ec="#d62728"))
-    ax.text(5.0, 3.6, "bead", ha="center", va="center", fontsize=9, color="#d62728")
-    for dx in (-0.25, 0.0, 0.25):
-        ax.plot([5.0 + dx, 5.0 + dx + 0.12], [2.9, 2.3], color="#e08a00", lw=1.6)
-        ax.plot([5.0 + dx + 0.12, 5.0 + dx], [2.3, 1.7], color="#e08a00", lw=1.6)
-    ax.text(5.0, 1.3, "heat", ha="center", fontsize=9, color="#e08a00")
+    ax.text(5.0, 3.6, "bead", ha="center", va="center", fontsize=13, color="#d62728")
+    for dx in (-0.3, 0.0, 0.3):
+        ax.plot([5.0 + dx, 5.0 + dx + 0.14], [2.9, 2.3], color="#e08a00", lw=2.0)
+        ax.plot([5.0 + dx + 0.14, 5.0 + dx], [2.3, 1.7], color="#e08a00", lw=2.0)
+    ax.text(5.0, 1.2, "heat", ha="center", fontsize=12, color="#e08a00")
 
-    fig.tight_layout()
-    fig.savefig(OUT / "01-three-strategies.png", dpi=140)
+    fig.tight_layout(h_pad=2.5)
+    fig.savefig(OUT / "01-three-strategies.png", dpi=150)
     plt.close(fig)
 
 
@@ -110,15 +110,15 @@ def fig02():
     fc = NOMINAL.crossover
     ax.axvline(fc, color="#888", ls="--", lw=0.9)
     ax.annotate(f"wake-up freq\nR = X  (~{fc/1e6:.0f} MHz)", xy=(fc, 60),
-                xytext=(1.1e6, 130), fontsize=9, color="#444",
+                xytext=(1.2e6, 135), fontsize=10, color="#444",
                 arrowprops=dict(arrowstyle="->", color="#888"))
-    ax.text(4e4, 0.5, "X dominates\n(just an inductor)", fontsize=9, color="#2ca02c")
-    ax.text(1.3e8, 8, "R dominates\n(noise -> heat)", fontsize=9, color="#d62728")
-    ax.text(2.3e8, 1.2, "parasitic C:\n|Z| falls", fontsize=9, color="#777")
+    ax.text(1.3e4, 0.45, "X dominates\n(inductor)", fontsize=10, color="#2ca02c", va="top")
+    ax.text(1.8e7, 0.5, "R dominates\n(turns to heat)", fontsize=10, color="#d62728", va="top")
+    ax.text(4.5e8, 0.45, "parasitic C:\n|Z| falls", fontsize=10, color="#777", va="top")
     ax.set_xlabel("frequency [Hz]")
     ax.set_ylabel("Z, R, X [Ohm]")
     ax.set_title("the bead's three lines: Z / R / X")
-    ax.set_ylim(0.05, 3e2)
+    ax.set_ylim(0.04, 3.2e2)
     ax.legend(loc="upper left")
     grid(ax)
     fig.tight_layout()
@@ -231,7 +231,8 @@ def fig06():
                       r_dc=NOMINAL.r_dc, c_par=NOMINAL.c_par)
         ax.loglog(F, np.abs(b.impedance(F)), color=color, lw=2, label=label)
     ax.annotate("more DC current\n-> ferrite saturates\n-> |Z| sinks",
-                xy=(1e8, 40), xytext=(2e6, 3), fontsize=10, color="#444",
+                xy=(1.1e8, 38), xytext=(3e7, 0.55), fontsize=10, color="#444",
+                ha="left", va="top",
                 arrowprops=dict(arrowstyle="->", color="#888"))
     ax.set_xlabel("frequency [Hz]")
     ax.set_ylabel("|Z| [Ohm]")

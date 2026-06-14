@@ -13,7 +13,7 @@ Zenn の連作「**EMI 対策部品の羅針盤**」の伴走ツールです。
 |---|---|---|
 | [第 1 本 (コンデンサ編)](https://zenn.dev/logicia32/articles/2026-06-11-emi-compass-1-capacitor) | 「0.1μF」はいつまでコンデンサか。V 字カーブ・SRF・並列反共振・三端子 | `cap` サブコマンド (実装済み) |
 | [第 2 本 (チップビーズ編)](https://zenn.dev/logicia32/articles/2026-06-12-emi-compass-2-bead) | ビーズは高周波で「抵抗になる」部品。とりあえずビーズの落とし穴 | `bead` サブコマンド (実装済み) |
-| 第 3 本 (羅針盤編) | 場面別の選定フロー。メーカー配布の実部品データで買う前に検証 | データ読み込みと組み合わせ検証 (予定) |
+| [第 3 本 (選定フロー編)](https://zenn.dev/logicia32/articles/2026-06-13-emi-compass-3-flow) | 場面別の選定フロー。LC フィルタの処方とメーカー配布の実部品データ (.s2p) で買う前に検証 | `filter` / `touchstone` サブコマンド (実装済み) |
 
 ## これは何を解決する道具か
 
@@ -130,12 +130,54 @@ bead + 10 uF (ESR 5 mOhm): resonance ~ 85.1 kHz, peak +10.7 dB at 83.2 kHz
 「ビーズを入れたらノイズが増えた」の正体が、入れる前に数字で見えます。
 `--l` `--r-loss` `--r-dc` `--c-par` でモデルを、`--filter-esr` でダンピングを変えられます。
 
+### LC (π 型) フィルタの伝達特性とカットオフ
+
+ビーズが効かない低い周波数 (数 kHz〜数百 kHz) は、チョーク + コンデンサの
+LC フィルタの守備範囲です。カットオフ・40dB/dec の傾き・共振ピークを描きます。
+
+```bash
+emi-compass filter --l 22u --c 100u
+```
+
+```
+LC filter: L=22 uH, C=100 uF, DCR=50 mOhm, ESR=0 Ohm
+    cutoff fc = 3.39 kHz  (sqrt(L/C) = 0.469 Ohm)
+    attenuation at 1 MHz = 98.8 dB
+    resonance peak +10.0 dB at 3.3 kHz  (>0 = amplified)
+```
+
+`--esr` を上げると (電解コンデンサを模す) 共振ピークがダンピングされ、`--at` で
+任意の周波数の減衰量を確認できます。「24V ラインの 1MHz を −40dB」のような
+お題を、部品を買う前に詰められます。
+
+### メーカー実測データ (.s2p / Touchstone) を読む
+
+メーカーは部品の実測特性を S パラメータ (Touchstone `.s2p`) で配布しています。
+これを読み込んで、教科書モデルと同じ「周波数 × |Z|」のグラフ (とスミスチャート)
+に描き直します。
+
+```bash
+emi-compass touchstone samples/sample_bead.s2p
+```
+
+```
+touchstone: samples/sample_bead.s2p  (220 points, 1 MHz..2 GHz, Z0=50 Ohm)
+    at 101 MHz: |Z| = 102.8 Ohm, insertion loss = 6.0 dB (series, 50-ohm system)
+```
+
+同梱の `samples/sample_bead.s2p` は、説明用に emi-compass 自身のモデルから
+書き出した**合成データ**です (本物のメーカーファイルも同じコマンドで読めます)。
+
 ## モデルと限界 (正直に)
 
 - 実コンデンサは教科書どおりの**直列 RLC** (C + ESL + ESR) として扱います。
   実部品の C・ESR は周波数・温度・DC バイアスで変わるので、このツールの結果は
   **「形と傾向を読む」用途に限ってください**。実設計の最終確認はメーカー提供の
-  実測データ (S パラメータ等) が安全です。第 3 本でその読み込みを扱う予定です。
+  実測データ (S パラメータ等) が安全です。その読み込みは `touchstone` で扱えます。
+- LC フィルタは理想素子 (理想 L・理想 C + 指定した ESR/DCR) で計算します。
+  ESR を 0 にすると 40dB/dec の理想 2 次特性ですが、実部品では ESR が高域の傾きを
+  寝かせます (だから π 型は 2 個目のコンデンサで高域を稼ぐ)。巻線容量・ESL は
+  含みません。
 - 挿入損失の計算は 50Ω 測定系の定義 (シャント素子の S21) に従います。
   **実際の電源ラインは 50Ω ではない**ので、データシートの dB がそのまま実機で
   出るわけではありません。`shunt_insertion_loss_db_sys()` に実ラインの
@@ -153,22 +195,27 @@ bead + 10 uF (ESR 5 mOhm): resonance ~ 85.1 kHz, peak +10.7 dB at 83.2 kHz
 ```bash
 .venv/bin/python scripts/make_article1_figures.py   # 第 1 本 (コンデンサ編) 図 10 枚
 .venv/bin/python scripts/make_article2_figures.py   # 第 2 本 (チップビーズ編) 図 8 枚
+.venv/bin/python scripts/make_article3_figures.py   # 第 3 本 (選定フロー編) 図 8 枚 + sample_bead.s2p
 ```
 
-`outputs/` に PNG と `summary.txt` / `summary2.txt` (SRF・反共振点・目覚めの周波数・
-共振ピークなどの数値) が生成されます。
+`outputs/` に PNG と `summary.txt` / `summary2.txt` / `summary3.txt` (SRF・反共振点・
+目覚めの周波数・共振ピーク・LC フィルタの fc などの数値) が生成されます。
+第 3 本のスクリプトは `samples/sample_bead.s2p` (合成 Touchstone) も書き出します。
 
 ## リポジトリ構成
 
 ```
 src/emi_compass/
-  models.py       # 等価回路モデル (コンデンサ=直列 RLC / ビーズ=R_dc + L∥R_loss + 寄生C、挿入損失、共振探索)
-  cli.py          # emi-compass コマンド (cap / bead サブコマンド)
+  models.py       # 等価回路モデル (コンデンサ=直列 RLC / ビーズ=R_dc + L∥R_loss + 寄生C / LC フィルタ、挿入損失、S パラメータ/.s2p 入出力)
+  cli.py          # emi-compass コマンド (cap / bead / filter / touchstone サブコマンド)
 scripts/
   make_article1_figures.py   # 連作第 1 本 (コンデンサ編) の図を一括生成
   make_article2_figures.py   # 連作第 2 本 (チップビーズ編) の図を一括生成
+  make_article3_figures.py   # 連作第 3 本 (選定フロー編) の図 + 合成 .s2p を一括生成
+samples/
+  sample_bead.s2p # touchstone 用の合成サンプル (モデルから書き出した 2 ポート Touchstone)
 tests/
-  test_models.py  # 解析値との一致を直接アサート (SRF 22.5MHz、目覚めの周波数、挿入損失の既知値 等) 21 件
+  test_models.py  # 解析値との一致を直接アサート (SRF 22.5MHz、目覚めの周波数、LC の fc、.s2p 往復 等) 33 件
 ```
 
 ## テスト
